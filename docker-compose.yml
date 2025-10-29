@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: newurl-app
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html
+    expose:
+      - 9000
+    networks:
+      - newurl-network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: newurl-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - newurl-network
+
+  db:
+    image: mysql:8.0
+    container_name: newurl-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: newurl_db
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_PASSWORD: db_password
+      MYSQL_USER: db_user
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - newurl-network
+
+networks:
+  newurl-network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
