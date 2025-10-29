@@ -1,0 +1,46 @@
+# Dockerfile standalone (sem Docker Compose)
+# Use este Dockerfile se você tiver apenas Docker básico instalado
+FROM php:8.2-apache
+
+# Sistema e dependências
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    zip \
+    unzip \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libicu-dev \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install intl pdo pdo_mysql zip bcmath gd
+
+# Instala Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Configura Apache
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+RUN a2enmod rewrite
+
+# Define diretório de trabalho
+WORKDIR /var/www/html
+
+# Copia composer.json primeiro (melhor cache)
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader
+
+# Copia todo o projeto
+COPY . .
+
+# Finaliza Composer e ajusta permissões
+RUN composer dump-autoload --optimize \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+# Expõe porta 80
+EXPOSE 80
+
+# Comando para iniciar
+CMD ["apache2-foreground"]
